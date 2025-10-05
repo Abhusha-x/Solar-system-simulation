@@ -29,6 +29,10 @@ const planetaryData = {
 const celestialObjects = {};
 let scaleMode = 'enhanced';
 
+
+// Orbital data
+
+
 // --- SCALE DEFINITIONS ---
 // Enhanced scale uses logarithmic scaling for better visualization of small bodies/inner system
 // Arbritary Scaling
@@ -218,7 +222,157 @@ function createPlanets() {
     updateScales();
 }
 
-function createNEOs() {
+// Function to create a THREE.Line object from the flattened array of coordinates
+function createOrbitLine(flattenedPoints) {
+    // 1. Create a Float32Array for better performance
+    const positions = new Float32Array(flattenedPoints);
+
+    // 2. Create the Geometry
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    // 3. Create the Material (light blue for the orbit line)
+    const material = new THREE.LineBasicMaterial({ color: 0x3399ff, linewidth: 1 });
+
+    // 4. Create the Line object
+    const line = new THREE.Line(geometry, material);
+    return line;
+}
+
+// Ensure this function is declared as async to use await
+async function createNEOs() {
+    // 1. Placeholder data (or use your fetch logic)
+const neoData = [
+        {
+            "name": "1979 XB",
+            "a": 2.23,
+            "e": 0.708,
+            "i": 24.7,
+            "Omega": 86.1,
+            "varpi": 75.6,
+            "M0": 2444267.667
+        },
+        {
+            "name": "2022 KK2",
+            "a": 1.2,
+            "e": 0.513,
+            "i": 3.12,
+            "Omega": 58.9,
+            "varpi": 75.3,
+            "M0": 2459660.086
+        },
+        {
+            "name": "2000 SG344",
+            "a": 0.977,
+            "e": 0.0669,
+            "i": 0.113,
+            "Omega": 192.0,
+            "varpi": 276.0,
+            "M0": 2461083.186
+        },
+        {
+            "name": "2012 VS76",
+            "a": 0.991,
+            "e": 0.386,
+            "i": 0.807,
+            "Omega": 242.0,
+            "varpi": 285.0,
+            "M0": 2461000.873
+        }
+    ];
+
+    const neosGroup = new THREE.Group();
+    neosGroup.name = "NEOs";
+    neosGroup.userData.key = "neos";
+    
+    // An array to hold all the NEO groups, which will be the children of neosGroup
+    const neoGroups = []; 
+
+    // 2. Iterate through the Keplerian data to create meshes and orbits
+    neoData.forEach((data, index) => {
+        const enhancedRadius = 0.8; 
+        const a_au = data.a;
+        const orbitalPeriod = Math.sqrt(a_au ** 3) * 365.25;
+        const L = data.M0 !== undefined ? (data.M0 + data.varpi) % 360 : data.L || 0;
+
+        // --- NEO MESH SETUP ---
+        const neoMesh = new THREE.Mesh(
+            new THREE.DodecahedronGeometry(enhancedRadius, 0),
+            new THREE.MeshStandardMaterial({ 
+                color: 0xcc3333, // Red color
+                roughness: 0.8, metalness: 0.2 
+            })
+        );
+        neoMesh.userData = { 
+            a: a_au, e: data.e, i: data.i, L: L, 
+            varpi: data.varpi || 0, Omega: data.Omega || 0, 
+            orbitalPeriod: orbitalPeriod, enhancedRadius: enhancedRadius 
+        };
+        
+        // NEO GROUP (Holds the mesh and the label)
+        const neoGroup = new THREE.Group();
+        neoGroup.name = data.name;
+        neoGroup.userData = neoMesh.userData; // Group holds the orbital data
+        neoGroup.add(neoMesh);
+        // Position set by updatePositions() later
+        
+        // --- ORBIT PATH GENERATION (Matching Planet Logic) ---
+        
+        // Initial setup for the geometry. The points will be set in updateScales().
+        // We use a dummy point count here, which will be updated immediately.
+        const orbitGeometry = new THREE.BufferGeometry(); 
+        const orbitMaterial = new THREE.LineBasicMaterial({ color: 0x3399ff, linewidth: 1 });
+        const orbit = new THREE.Line(orbitGeometry, orbitMaterial);
+        orbit.name = `OrbitLine_${index}`;
+        
+        // Store the orbit line in the NEO group's userData for easy access in updateScales()
+        neoGroup.userData.orbitLine = orbit;
+
+        // Set up the correct Group hierarchy for the Ecliptic rotations
+        const omega = data.varpi; 
+
+        // 1. Innermost rotation: Argument of Perihelion (ω) - Rot Y (in Three.js)
+        // NOTE: Planets use varpi - Omega here, but for NEOs, we'll align the
+        // rotation logic with the single-matrix approach for simplicity and performance,
+        // which often assumes 'varpi' is the true rotation angle in the ecliptic.
+        // HOWEVER, to match your planet logic:
+        const group_omega = new THREE.Group();
+        group_omega.rotation.y = THREE.MathUtils.degToRad(omega);
+        group_omega.add(orbit);
+
+        // 2. Middle rotation: Inclination (i) - Rot X (in Three.js)
+        const group_i = new THREE.Group();
+        group_i.rotation.x = THREE.MathUtils.degToRad(data.i);
+        group_i.add(group_omega);
+
+        // 3. Outermost rotation: Longitude of Ascending Node (Ω) - Rot Y (in Three.js)
+        const group_Omega = new THREE.Group();
+        group_Omega.rotation.y = THREE.MathUtils.degToRad(data.Omega);
+        group_Omega.add(group_i);
+
+        // Add the rotation hierarchy (which contains the orbit line) to the scene
+        scene.add(group_Omega);
+
+        // Store the outermost rotation group for visibility/scaling updates
+        neoGroup.userData.orbitRotationGroup = group_Omega;
+        
+        // Add the NEO group (which contains the mesh) to the parent NEOs group
+        neosGroup.add(neoGroup);
+    });
+
+    // 3. Final Setup
+    scene.add(neosGroup);
+    // Store the main NEOs group and the inner groups for easy access
+    celestialObjects.neos = { group: neosGroup, neoGroups: neoGroups };
+    
+    // Call updateScales() to immediately generate the orbit paths and scale meshes
+    updateScales(); 
+    
+    return neosGroup;
+}
+
+// Fallback function (optional, for error handling)
+function createNEOsRandomFallback() {
     const neoCount = 150, neosGroup = new THREE.Group();
     neosGroup.name = "NEOs"; neosGroup.userData.key = "neos";
     for (let i = 0; i < neoCount; i++) {
@@ -342,24 +496,48 @@ function updateScales() {
         }
     });
 
-    // NEO SCALING
-    if (celestialObjects.neos && celestialObjects.neos.group) {
-        celestialObjects.neos.group.children.forEach(neo => {
-            const data = neo.userData;
-            if (scaleMode === 'enhanced') {
-                // In Enhanced mode, the geometry is already sized correctly, so we set the scale back to 1.
-                neo.scale.setScalar(1);
-            } else if (scaleMode === 'true') {
-                // In True Scale mode, we scale them down significantly to a representative 1km size.
-                const TRUE_NEO_DIAMETER_KM = 1;
-                const scaledTrueRadius = trueScale.size(TRUE_NEO_DIAMETER_KM) / 2;
+    // Inside updateScales()
 
-                // Scale factor = (Target True Radius) / (Current Enhanced Radius)
-                const scaleFactor = scaledTrueRadius / data.enhancedRadius;
-                neo.scale.setScalar(scaleFactor);
+    // ... (Planet Scaling Logic) ...
+
+    // --- NEO ORBIT SCALING LOGIC ---
+    const neosGroup = celestialObjects.neos ? celestialObjects.neos.group : null;
+
+    if (neosGroup) {
+        neosGroup.children.forEach(neoGroup => {
+            const userData = neoGroup.userData;
+            if (userData && userData.a) {
+                const neoMesh = neoGroup.children.find(c => c.isMesh);
+                
+                // 1. Scale the NEO mesh size
+                const scaledSize = currentScale.size(userData.enhancedRadius);
+                neoMesh.scale.set(scaledSize, scaledSize, scaledSize);
+
+                // 2. REGENERATE THE ORBIT GEOMETRY
+                
+                // Re-calculate ellipse parameters based on new scale
+                const a = currentScale.distance(userData.a);
+                const b = a * Math.sqrt(1 - userData.e ** 2);
+                const curve = new THREE.EllipseCurve(-a * userData.e, 0, a, b, 0, 2 * Math.PI, false, 0);
+
+                // Re-calculate and transform points to match the scaling change
+                const points = curve.getPoints(100);
+                const transformedPoints = points.map(p => new THREE.Vector3(p.x, 0, -p.y));
+
+                // Find the orbit line object (it's stored in the hierarchy under userData.orbitLine)
+                const orbitLine = userData.orbitRotationGroup.getObjectByName(`OrbitLine_${neosGroup.children.indexOf(neoGroup)}`);
+                
+                if (orbitLine && orbitLine.isLine) {
+                    // Dispose and set new geometry
+                    if (orbitLine.geometry) {
+                        orbitLine.geometry.dispose();
+                    }
+                    orbitLine.geometry.setFromPoints(transformedPoints);
+                }
             }
         });
     }
+    // ------------------------------
 }
 
 function updatePositions(elapsedTime) {
@@ -386,24 +564,41 @@ function updatePositions(elapsedTime) {
         // Solve Kepler's equation for Eccentric Anomaly (E)
         const E = solveKepler(THREE.MathUtils.degToRad(M), data.e);
 
-        // Calculate orbital coordinates (x_orb, y_orb) in the orbital plane (x-axis toward perihelion)
+        // Calculate orbital coordinates (x_orb, y_orb) in the orbital plane (focal point is the Sun)
         const a_scaled = currentScale.distance(data.a);
         const x_orb = a_scaled * (Math.cos(E) - data.e);
         const y_orb = a_scaled * Math.sqrt(1 - data.e ** 2) * Math.sin(E);
 
-        const omega = data.varpi - data.Omega;
+        // --- UNIFIED POSITION CALCULATION ---
 
-        // Define rotation matrices (Z(omega) -> X(i) -> Z(Omega))
-        const mOmega = new THREE.Matrix4().makeRotationZ(THREE.MathUtils.degToRad(data.Omega));
-        const mI = new THREE.Matrix4().makeRotationX(THREE.MathUtils.degToRad(data.i));
-        const m_omega = new THREE.Matrix4().makeRotationZ(THREE.MathUtils.degToRad(omega));
+        // Step 1: Define the position in the orbital plane (X-axis toward perihelion).
+        // Use the X-Z plane convention (like the orbit curve uses X, 0, -Y)
+        const pos_orbit_plane = new THREE.Vector3(x_orb, 0, -y_orb);
 
-        // Apply rotations to transform from Orbital Plane to Ecliptic Plane
-        const pos = new THREE.Vector3(x_orb, y_orb, 0);
-        pos.applyMatrix4(m_omega).applyMatrix4(mI).applyMatrix4(mOmega);
+        // Step 2: Define the combined rotation matrix
+        // The rotation sequence is (Ω) around Y, then (i) around X, then (ω) around Y.
+        const i_rad = THREE.MathUtils.degToRad(data.i);
+        const Omega_rad = THREE.MathUtils.degToRad(data.Omega);
+        const varpi_rad = THREE.MathUtils.degToRad(data.varpi);
 
-        // Map Ecliptic (X, Y, Z) to Three.js World (X, Z, -Y)
-        objGroup.position.set(pos.x, pos.z, -pos.y);
+        const rotationMatrix = new THREE.Matrix4();
+        // Rotation around the Ecliptic Z-axis (Longitude of Ascending Node)
+        rotationMatrix.makeRotationY(Omega_rad); 
+        // Rotation around the Nodal Line (Inclination)
+        rotationMatrix.multiply(new THREE.Matrix4().makeRotationX(i_rad));
+        // Rotation in the orbital plane (Argument of Perihelion)
+        rotationMatrix.multiply(new THREE.Matrix4().makeRotationY(varpi_rad)); 
+
+        // Step 3: Apply the rotation to transform the vector to the Ecliptic J2000 frame (X, Y, Z)
+        pos_orbit_plane.applyMatrix4(rotationMatrix);
+
+        // Step 4: Map the resulting vector directly to the object group's position
+        // The result is already in the Ecliptic/Three.js coordinate system (relative to the Sun/Origin)
+        objGroup.position.copy(pos_orbit_plane); 
+        // objGroup.position.set(pos_orbit_plane.x, pos_orbit_plane.y, pos_orbit_plane.z);
+        // objGroup.position.set(pos.x, pos.z, -pos.y); <--- This is now OBSOLETE.
+
+        // -----------------------------------
 
         if (!isNeo) {
             const rotation = (elapsedTime * (timeSpeed / (data.rotationPeriod * 3600))) * 2 * Math.PI;
@@ -440,5 +635,4 @@ function animate() {
     controls.update();
     renderer.render(scene, camera);
 }
-
 init();
