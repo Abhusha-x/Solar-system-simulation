@@ -88,7 +88,7 @@
         </button>
 
         <button id="leaderboard-btn" class="menu-button">
-            View Palermo Scale Leaderboard
+            <a href="leaderboard.html">View Palermo Scale Leaderboard</a>
         </button>
     </div>
 
@@ -104,6 +104,16 @@
             display: flex;
             gap: 8px;
             z-index: 10;
+        }
+
+        a:link,
+        a:visited {
+            background-color: transparent !important;
+            color: white;
+            padding: 8px 25px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
         }
 
         .menu-button {
