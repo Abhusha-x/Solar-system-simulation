@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asteroid Impact Simulator</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+
+    <style>
+        /* Core Styles from styles.css */
+        body {
+            font-family: 'Roboto Mono', monospace;
+            background-color: #010409;
+            color: #c9d1d9;
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        .ui-panel {
+            background-color: rgba(13, 17, 23, 0.85);
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 15px;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            -webkit-backdrop-filter: blur(5px);
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+        }
+
+        .ui-panel h2 {
+            font-family: 'Orbitron', sans-serif;
+            color: #f0f6fc;
+            border-bottom: 1px solid #30363d;
+            padding-bottom: 10px;
+            margin-top: 0;
+            font-size: 1.25rem;
+        }
+
+        .ui-panel h3 {
+            font-family: 'Orbitron', sans-serif;
+            color: #f0f6fc;
+            border-top: 1px solid #30363d;
+            padding-top: 15px;
+            margin-top: 25px;
+            font-size: 1.1rem;
+        }
+
+        .ui-panel h4 {
+            font-family: 'Orbitron', sans-serif;
+            color: #c9d1d9;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #8b949e;
+        }
+
+        .button {
+            width: 100%;
+            transition: all 0.2s ease-in-out;
+            background-color: #21262d;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            padding: 10px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-family: 'Roboto Mono', monospace;
+        }
+
+        .button:hover,
+        .button.active {
+            background-color: #30363d;
+            border-color: #8b949e;
+        }
+
+        .button:active {
+            transform: scale(0.98);
+        }
+
+        input[type="number"] {
+            font-family: 'Roboto Mono', monospace;
+            background-color: #010409;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            padding: 8px;
+            border-radius: 4px;
+            width: calc(100% - 18px);
+            /* Account for padding */
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #58a6ff;
+        }
+
+        /* Results Styling */
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #21262d;
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: #8b949e;
+        }
+
+        .info-value {
+            color: #f0f6fc;
+            font-weight: bold;
+            text-align: right;
+        }
+
+        .damage-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .damage-list li {
+            padding: 5px 0;
+        }
+
+        /* Layout Specific Styles */
+        #controls-column {
+            flex: 1;
+            min-width: 320px;
+        }
+
+        #map-column {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="controls-column" class="ui-panel">
+        <h2>ASTEROID PARAMETERS</h2>
+        <p>Modify values or click the map to set an impact location.</p>
+
+        <div class="control-group">
+            <label for="density-input">Density (kg/m³)</label>
+            <input type="number" id="density-input" value="7800" min="1">
+        </div>
+
+        <div class="control-group">
+            <label for="speed-input">Speed (m/s)</label>
+            <input type="number" id="speed-input" value="17000" min="1">
+        </div>
+
+        <div class="control-group">
+            <label for="diameter-input">Diameter (meters)</label>
+            <input type="number" id="diameter-input" value="50" min="1">
+        </div>
+
+        <button id="run-button" class="button">Run Impact Simulation</button>
+
+        <div id="results-container">
+            <h3>IMPACT ANALYSIS</h3>
+            <div id="error-display" style="color: #ff7b72; font-weight: bold;"></div>
+
+            <div id="results-content">
+                <div class="info-item">
+                    <span class="info-label">Location</span>
+                    <span id="location-value" class="info-value">0.0000°, 0.0000°</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Kinetic Energy</span>
+                    <span id="energy-value" class="info-value">-</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Classification</span>
+                    <span id="class-value" class="info-value">-</span>
+                </div>
+
+                <h4>Damage Radii (km)</h4>
+                <ul class="damage-list">
+                    <li style="color: #ff7b72;">Severe Damage: <b id="severe-radius-value">-</b></li>
+                    <li style="color: #f0b975;">Moderate Damage: <b id="moderate-radius-value">-</b></li>
+                    <li style="color: #e6e6a0;">Light Damage: <b id="light-radius-value">-</b></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div id="map-column" class="ui-panel">
+        <h2>EARTH IMPACT MAP</h2>
+        <div id="map"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <script>
+        // --- DOM Element Selection ---
+        const densityInput = document.getElementById('density-input');
+        const speedInput = document.getElementById('speed-input');
+        const diameterInput = document.getElementById('diameter-input');
+        const runButton = document.getElementById('run-button');
+
+        const errorDisplay = document.getElementById('error-display');
+        const locationValue = document.getElementById('location-value');
+        const energyValue = document.getElementById('energy-value');
+        const classValue = document.getElementById('class-value');
+        const severeRadiusValue = document.getElementById('severe-radius-value');
+        const moderateRadiusValue = document.getElementById('moderate-radius-value');
+        const lightRadiusValue = document.getElementById('light-radius-value');
+
+        // --- State Variables ---
+        let impactLocation = { lat: 0, lng: 0 };
+        let map;
+        let impactMarker = null;
+        const impactCircles = [];
+
+        // --- Core Calculation Logic ---
+        function calculateImpactRadius(density, speed, diameter) {
+            if (density <= 0 || speed <= 0 || diameter <= 0) {
+                throw new Error("Inputs must be positive numbers.");
+            }
+            const radius = diameter / 2;
+            const volume = (4 / 3) * Math.PI * Math.pow(radius, 3);
+            const mass = density * volume;
+            const kineticEnergy = 0.5 * mass * Math.pow(speed, 2);
+
+            // Simplified empirical formula for damage radius based on energy (in Joules)
+            // Constants are chosen for plausible results
+            const severeRadiusKm = 0.001 * Math.pow(kineticEnergy, 1 / 3.3);
+            const moderateRadiusKm = 0.005 * Math.pow(kineticEnergy, 1 / 3.2);
+            const lightRadiusKm = 0.02 * Math.pow(kineticEnergy, 1 / 3.1);
+
+            let classification = 'Light';
+            if (kineticEnergy > 5e15) classification = 'Moderate'; // ~1 Megaton TNT
+            if (kineticEnergy > 5e17) classification = 'Severe'; // ~100 Megatons TNT
+
+            return {
+                kinetic_energy_joules: kineticEnergy,
+                severe_radius_km: severeRadiusKm,
+                moderate_radius_km: moderateRadiusKm,
+                light_radius_km: lightRadiusKm,
+                damage_classification: classification,
+            };
+        }
+
+        // Helper to format numbers
+        const formatNumber = (num, decimals = 2) => num.toLocaleString('en-US', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals,
+        });
+
+        // --- Main Simulation Function ---
+        function runCalculation() {
+            try {
+                errorDisplay.textContent = '';
+
+                const results = calculateImpactRadius(
+                    parseFloat(densityInput.value),
+                    parseFloat(speedInput.value),
+                    parseFloat(diameterInput.value)
+                );
+
+                // Update UI text
+                locationValue.textContent = `${formatNumber(impactLocation.lat, 4)}°, ${formatNumber(impactLocation.lng, 4)}°`;
+                energyValue.textContent = `${results.kinetic_energy_joules.toExponential(2)} J`;
+
+                const classification = results.damage_classification;
+                classValue.textContent = classification;
+                if (classification === 'Severe') classValue.style.color = '#ff7b72';
+                else if (classification === 'Moderate') classValue.style.color = '#f0b975';
+                else classValue.style.color = '#a3ccae';
+
+                severeRadiusValue.textContent = `${formatNumber(results.severe_radius_km)} km`;
+                moderateRadiusValue.textContent = `${formatNumber(results.moderate_radius_km)} km`;
+                lightRadiusValue.textContent = `${formatNumber(results.light_radius_km)} km`;
+
+                updateMap(results);
+
+            } catch (err) {
+                errorDisplay.textContent = `Calculation Error: ${err.message}`;
+                clearMap();
+            }
+        }
+
+        // --- Map Update Functions ---
+        function clearMap() {
+            impactCircles.forEach(circle => map.removeLayer(circle));
+            impactCircles.length = 0; // Clear the array
+        }
+
+        function updateMap(results) {
+            // Clear previous circles
+            clearMap();
+
+            // Set marker position
+            if (!impactMarker) {
+                impactMarker = L.marker(impactLocation).addTo(map);
+            } else {
+                impactMarker.setLatLng(impactLocation);
+            }
+
+            // Define circles to draw
+            const circlesToDraw = [
+                { radius: results.light_radius_km * 1000, color: '#e6e6a0' },
+                { radius: results.moderate_radius_km * 1000, color: '#f0b975' },
+                { radius: results.severe_radius_km * 1000, color: '#ff7b72' },
+            ].sort((a, b) => b.radius - a.radius); // Draw largest first
+
+            // Draw new circles
+            circlesToDraw.forEach(c => {
+                const circle = L.circle(impactLocation, {
+                    radius: c.radius,
+                    color: c.color,
+                    fillColor: c.color,
+                    fillOpacity: 0.1,
+                    weight: 2
+                }).addTo(map);
+                impactCircles.push(circle);
+            });
+
+            // Adjust map view
+            const zoomLevel = results.light_radius_km > 200 ? 3 : (results.light_radius_km > 50 ? 5 : 8);
+            map.setView(impactLocation, zoomLevel);
+        }
+
+        // --- Event Listeners ---
+        function handleLocationSelect(e) {
+            impactLocation = e.latlng;
+            runCalculation();
+        }
+
+        runButton.addEventListener('click', runCalculation);
+        densityInput.addEventListener('change', runCalculation);
+        speedInput.addEventListener('change', runCalculation);
+        diameterInput.addEventListener('change', runCalculation);
+
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize Leaflet Map
+            map = L.map('map').setView([20, 0], 2);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            // Fix for default Leaflet icon issue
+            delete L.Icon.Default.prototype._getIconUrl;
+            L.Icon.Default.mergeOptions({
+                iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
+                iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+                shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+            });
+
+            // Set up map click listener
+            map.on('click', handleLocationSelect);
+
+            // Run initial calculation on load
+            runCalculation();
+        });
+    </script>
+
+</body>
+
+</html>
