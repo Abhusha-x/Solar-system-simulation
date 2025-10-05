@@ -22,8 +22,8 @@ const planetaryData = {
     mars: { name: "Mars", diameter: 6792, rotationPeriod: 24.6229, obliquity: 25.19, texture: 'mars.jpg', a: 1.523679, e: 0.09340, i: 1.850, L: 355.45332, varpi: 336.04084, Omega: 49.57854, orbitalPeriod: 686.980 },
     jupiter: { name: "Jupiter", diameter: 142984, rotationPeriod: 9.925, obliquity: 3.13, texture: 'jupiter.jpg', a: 5.2044, e: 0.0489, i: 1.303, L: 34.3964, varpi: 14.7284, Omega: 100.492, orbitalPeriod: 4332.59 },
     saturn: { name: "Saturn", diameter: 120536, rotationPeriod: 10.656, obliquity: 26.73, texture: 'saturn.jpg', ringTexture: 'saturn-rings.jpg', a: 9.5826, e: 0.0565, i: 2.485, L: 49.94432, varpi: 92.5988, Omega: 113.665, orbitalPeriod: 10759.22 },
-    uranus: { name: "Uranus", diameter: 51118, rotationPeriod: -17.24, obliquity: 97.77, texture: 'textures/uranus.jpg', a: 19.2294, e: 0.0457, i: 0.772, L: 313.23218, varpi: 170.96424, Omega: 74.22988, orbitalPeriod: 30688.5 },
-    neptune: { name: "Neptune", diameter: 49528, rotationPeriod: 16.11, obliquity: 28.32, texture: 'textures/neptune.jpg', a: 30.10366, e: 0.0113, i: 1.769, L: 304.88003, varpi: 44.97135, Omega: 131.72169, orbitalPeriod: 60182 },
+    uranus: { name: "Uranus", diameter: 51118, rotationPeriod: -17.24, obliquity: 97.77, texture: 'uranus.jpg', a: 19.2294, e: 0.0457, i: 0.772, L: 313.23218, varpi: 170.96424, Omega: 74.22988, orbitalPeriod: 30688.5 },
+    neptune: { name: "Neptune", diameter: 49528, rotationPeriod: 16.11, obliquity: 28.32, texture: 'neptune.jpg', a: 30.10366, e: 0.0113, i: 1.769, L: 304.88003, varpi: 44.97135, Omega: 131.72169, orbitalPeriod: 60182 },
     // pluto: { name: "Pluto", diameter: 2376, rotationPeriod: -153.3, obliquity: 122.5, texture: 'p', a: 39.482, e: 0.2488, i: 17.16, L: 238.9288, varpi: 224.06676, Omega: 110.30347, orbitalPeriod: 90560 }
 };
 const celestialObjects = {};
@@ -442,3 +442,4 @@ function animate() {
 }
 
 init();
+
